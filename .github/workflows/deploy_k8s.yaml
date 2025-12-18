@@ -13,22 +13,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # (opcjonalnie) bezpieczny debug JSON
-      - name: Debug GCP key (safe)
-        env:
-          KEY: ${{ secrets.GCP_AUTH_KEY }}
-        run: python - <<'PY'
-import os, json
-k = os.environ.get("KEY", "")
-print("len(GCP_AUTH_KEY) =", len(k))
-j = json.loads(k)
-print("project_id =", j.get("project_id"))
-print("client_email =", j.get("client_email"))
-pk = j.get("private_key", "")
-print("private_key has BEGIN:", "BEGIN PRIVATE KEY" in pk)
-print("private_key length =", len(pk))
-PY
-
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -48,7 +32,7 @@ PY
       - name: Push image
         run: docker push ${{ secrets.REPOSITORY_URL }}/uwb-app:latest
 
-      - name: Upload k8s manifests to VM
+      - name: Update app files (k8s manifests) on VM
         uses: appleboy/scp-action@v0.1.5
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -67,7 +51,6 @@ PY
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           script: |
             export KUBECONFIG=/home/${{ secrets.SSH_USER }}/.kube/config
-
             kubectl cluster-info
             kubectl get nodes
 
@@ -75,4 +58,3 @@ PY
             kubectl apply -f k8s/deployment.yaml --validate=false
             kubectl apply -f k8s/service.yaml --validate=false
             kubectl rollout status deployment/uwb-app --timeout=120s
-            kubectl get svc uwb-app-service -o wide
