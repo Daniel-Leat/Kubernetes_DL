@@ -11,18 +11,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Decode GCP key to file
-        run: |
-          echo "${{ secrets.GCP_AUTH_KEY_B64 }}" | base64 -d > gcp-key.json
-          python - <<'PY'
-          import json
-          j = json.load(open("gcp-key.json", "r", encoding="utf-8"))
-          print("project_id:", j.get("project_id"))
-          print("client_email:", j.get("client_email"))
-          print("private_key length:", len(j.get("private_key", "")))
-          PY
+        uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -43,7 +32,7 @@ jobs:
       - name: Push image
         run: docker push ${{ secrets.REPOSITORY_URL }}/uwb-app:latest
 
-      - name: Upload k8s manifests to VM
+      - name: Update app files (k8s manifests) on VM
         uses: appleboy/scp-action@v0.1.5
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -64,8 +53,6 @@ jobs:
             export KUBECONFIG=/home/${{ secrets.SSH_USER }}/.kube/config
             kubectl cluster-info
             kubectl get nodes
+
             cd ~/app
-            kubectl apply -f k8s/deployment.yaml --validate=false
-            kubectl apply -f k8s/service.yaml --validate=false
-            kubectl rollout status deployment/uwb-app --timeout=120s
-            kubectl get svc uwb-app-service -o wide
+            kubectl apply
